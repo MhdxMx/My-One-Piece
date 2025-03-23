@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Je t'aime My One Piece</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        
+        .message-wrapper {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+        
+        .message {
+            font-size: 4vw;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.8), 0 0 20px rgba(255, 0, 0, 0.5);
+            letter-spacing: 2px;
+            text-align: center;
+            padding: 20px;
+            border-radius: 20px;
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+        
+        .letter {
+            display: inline-block;
+            opacity: 0;
+            transform-origin: center;
+        }
+        
+        .hearts-container {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            pointer-events: none;
+        }
+        
+        .floating-heart {
+            position: absolute;
+            font-size: 24px;
+            color: red;
+            opacity: 0;
+            transform-origin: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas"></div>
+    <div class="hearts-container"></div>
+    <div class="message-wrapper">
+        <div class="message" id="love-message">Je t'aime My One Piece</div>
+    </div>
+    
+    <script>
+        // Fonction pour générer un point sur un cœur
+        function heartX(t, scale) {
+            return scale * 16 * Math.pow(Math.sin(t), 3);
+        }
+        
+        function heartY(t, scale) {
+            return -scale * (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+        }
+        
+        // Configuration P5.js pour l'animation en forme de cœur
+        new p5(function(p) {
+            let particles = [];
+            const numParticles = 300;
+            let heartScale;
+            
+            p.setup = function() {
+                p.createCanvas(p.windowWidth, p.windowHeight);
+                heartScale = p.min(p.width, p.height) / 500;
+                
+                // Créer des particules pour former un cœur
+                for (let i = 0; i < numParticles; i++) {
+                    const t = p.random(0, p.TWO_PI);
+                    const scale = heartScale * (p.random(0.8, 1.2));
+                    const x = heartX(t, scale) * 10 + p.width/2;
+                    const y = heartY(t, scale) * 10 + p.height/2;
+                    
+                    particles.push({
+                        x: x,
+                        y: y,
+                        originX: x,
+                        originY: y,
+                        t: t,
+                        scale: scale,
+                        size: p.random(2, 6),
+                        speedX: p.random(-0.5, 0.5),
+                        speedY: p.random(-0.5, 0.5),
+                        hue: p.random(320, 360),
+                        wobble: p.random(0, p.TWO_PI),
+                        wobbleSpeed: p.random(0.01, 0.05)
+                    });
+                }
+                
+                p.colorMode(p.HSB, 360, 100, 100, 1);
+                p.noStroke();
+            };
+            
+            p.draw = function() {
+                p.background(0, 0.05);
+                
+                // Dessiner le cœur avec des lignes
+                p.stroke(340, 80, 90, 0.1);
+                p.noFill();
+                p.beginShape();
+                for (let t = 0; t < p.TWO_PI; t += 0.01) {
+                    let x = heartX(t, heartScale * 10) + p.width/2;
+                    let y = heartY(t, heartScale * 10) + p.height/2;
+                    p.vertex(x, y);
+                }
+                p.endShape(p.CLOSE);
+                p.noStroke();
+                
+                // Dessiner un cœur brillant au centre
+                drawGlowingHeart(p, heartScale * 10);
+                
+                // Mettre à jour et dessiner les particules
+                for (let i = 0; i < particles.length; i++) {
+                    let particle = particles[i];
+                    
+                    // Oscillation autour de la position d'origine
+                    const wobbleAmount = 5;
+                    particle.wobble += particle.wobbleSpeed;
+                    
+                    const targetX = particle.originX + Math.sin(particle.wobble) * wobbleAmount;
+                    const targetY = particle.originY + Math.cos(particle.wobble) * wobbleAmount;
+                    
+                    // Mouvement vers la position cible
+                    particle.x += (targetX - particle.x) * 0.05;
+                    particle.y += (targetY - particle.y) * 0.05;
+                    
+                    // Ajouter un peu de mouvement aléatoire
+                    particle.x += particle.speedX;
+                    particle.y += particle.speedY;
+                    
+                    // Friction pour éviter trop de dérive
+                    particle.speedX *= 0.95;
+                    particle.speedY *= 0.95;
+                    
+                    // Si trop loin de l'origine, attirer vers l'origine
+                    const dx = particle.originX - particle.x;
+                    const dy = particle.originY - particle.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 30) {
+                        particle.speedX += dx * 0.01;
+                        particle.speedY += dy * 0.01;
+                    }
+                    
+                    // Dessiner la particule
+                    const pulseSize = 1 + Math.sin(p.frameCount * 0.05 + i * 0.1) * 0.3;
+                    p.fill(particle.hue, 90, 100, 0.8);
+                    p.ellipse(particle.x, particle.y, particle.size * pulseSize, particle.size * pulseSize);
+                }
+                
+                // Parfois redéfinir certaines particules pour garder la forme
+                if (p.frameCount % 30 === 0) {
+                    const i = Math.floor(p.random(particles.length));
+                    const t = p.random(0, p.TWO_PI);
+                    const scale = heartScale * (p.random(0.8, 1.2));
+                    particles[i].originX = heartX(t, scale) * 10 + p.width/2;
+                    particles[i].originY = heartY(t, scale) * 10 + p.height/2;
+                    particles[i].t = t;
+                    particles[i].scale = scale;
+                }
+            };
+            
+            // Fonction pour dessiner un cœur brillant
+            function drawGlowingHeart(p, scale) {
+                const steps = 100;
+                const baseHue = 340;
+                
+                // Plusieurs couches pour l'effet de lueur
+                for (let layer = 5; layer > 0; layer--) {
+                    const alpha = 0.04 / layer;
+                    const layerScale = scale * (1 + layer * 0.05);
+                    
+                    p.fill(baseHue, 90, 90, alpha);
+                    p.beginShape();
+                    for (let i = 0; i < steps; i++) {
+                        const t = (i / steps) * p.TWO_PI;
+                        const x = heartX(t, layerScale) + p.width/2;
+                        const y = heartY(t, layerScale) + p.height/2;
+                        p.vertex(x, y);
+                    }
+                    p.endShape(p.CLOSE);
+                }
+                
+                // Cœur central
+                p.fill(baseHue, 80, 90, 0.3);
+                p.beginShape();
+                for (let i = 0; i < steps; i++) {
+                    const t = (i / steps) * p.TWO_PI;
+                    const x = heartX(t, scale * 0.95) + p.width/2;
+                    const y = heartY(t, scale * 0.95) + p.height/2;
+                    p.vertex(x, y);
+                }
+                p.endShape(p.CLOSE);
+            }
+            
+            p.windowResized = function() {
+                p.resizeCanvas(p.windowWidth, p.windowHeight);
+                heartScale = p.min(p.width, p.height) / 500;
+                
+                // Recalculer les positions des particules
+                for (let i = 0; i < particles.length; i++) {
+                    const t = particles[i].t;
+                    const scale = particles[i].scale * (heartScale / (p.min(p.width, p.height) / 500));
+                    particles[i].scale = scale;
+                    particles[i].originX = heartX(t, scale) * 10 + p.width/2;
+                    particles[i].originY = heartY(t, scale) * 10 + p.height/2;
+                }
+            };
+        }, 'canvas');
+        
+        // Animation du texte avec anime.js
+        window.onload = function() {
+            // Diviser le texte en lettres individuelles
+            const message = document.getElementById('love-message');
+            const text = message.textContent;
+            message.innerHTML = '';
+            
+            for (let i = 0; i < text.length; i++) {
+                const letter = document.createElement('span');
+                letter.classList.add('letter');
+                letter.textContent = text[i];
+                message.appendChild(letter);
+            }
+            
+            // Animation de chaque lettre
+            anime.timeline({loop: false})
+              .add({
+                targets: '.letter',
+                scale: [0, 1],
+                opacity: [0, 1],
+                translateZ: 0,
+                easing: "easeOutExpo",
+                duration: 1200,
+                delay: (el, i) => 70 * i
+              }).add({
+                targets: '.message',
+                opacity: 1,
+                duration: 1000,
+                easing: "easeOutExpo",
+                delay: 1000
+              });
+            
+            // Animation continue du texte
+            anime({
+                targets: '.message',
+                scale: [1, 1.05],
+                direction: 'alternate',
+                loop: true,
+                easing: 'easeInOutSine',
+                duration: 1500
+            });
+            
+            // Créer des petits cœurs qui s'envolent
+            createHeartParticles();
+        };
+        
+        // Fonction pour créer des petits cœurs qui s'envolent
+        function createHeartParticles() {
+            const container = document.querySelector('.hearts-container');
+            
+            setInterval(() => {
+                const heart = document.createElement('div');
+                heart.classList.add('floating-heart');
+                heart.innerHTML = '❤';
+                
+                // Position aléatoire sur le périmètre du grand cœur
+                const angle = Math.random() * Math.PI * 2;
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                const heartSize = Math.min(window.innerWidth, window.innerHeight) / 2.5;
+                
+                const t = angle;
+                const x = centerX + heartSize * 16 * Math.pow(Math.sin(t), 3) / 10;
+                const y = centerY - heartSize * (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) / 10;
+                
+                heart.style.left = x + 'px';
+                heart.style.top = y + 'px';
+                
+                // Taille et couleur aléatoires
+                const size = Math.random() * 15 + 10;
+                heart.style.fontSize = size + 'px';
+                const hue = Math.random() * 40 + 330;
+                heart.style.color = `hsl(${hue}, 100%, 65%)`;
+                heart.style.filter = `drop-shadow(0 0 5px hsl(${hue}, 100%, 65%))`;
+                
+                container.appendChild(heart);
+                
+                // Animation avec anime.js - s'envoler du cœur vers l'extérieur
+                anime({
+                    targets: heart,
+                    translateX: [0, (Math.random() - 0.5) * 200],
+                    translateY: [0, (Math.random() - 0.5) * 200],
+                    scale: [0, Math.random() + 0.5],
+                    opacity: [0, 0.8, 0],
+                    easing: 'easeOutCubic',
+                    duration: Math.random() * 3000 + 2000,
+                    complete: function() {
+                        heart.remove();
+                    }
+                });
+            }, 100);
+        }
+    </script>
+</body>
+</html>
